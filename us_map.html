@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bird Picker Map</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+
+    #birds {
+      width: 20%;
+      background-color: #f5f5f5;
+      padding: 1rem;
+      overflow-y: auto;
+      border-right: 1px solid #ccc;
+    }
+
+    #bird-list .bird-item {
+      cursor: pointer;
+      padding: 0.5rem;
+      margin-bottom: 0.3rem;
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    .bird-item:hover {
+      background-color: #e0e0ff;
+    }
+
+    #map {
+      flex: 1;
+    }
+
+    #sidebar {
+      width: 25%;
+      background-color: #fafafa;
+      padding: 1rem;
+      border-left: 1px solid #ccc;
+    }
+
+    #info-box {
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Left bird list -->
+  <div id="birds">
+    <h2>Pick a bird</h2>
+    <div id="bird-list">
+      <div class="bird-item" data-name="Blue Jay">Blue Jay</div>
+      <div class="bird-item" data-name="Cardinal">Cardinal</div>
+      <div class="bird-item" data-name="Goldfinch">Goldfinch</div>
+      <div class="bird-item" data-name="Hawk">Hawk</div>
+      <div class="bird-item" data-name="Woodpecker">Woodpecker</div>
+      <!-- Add more -->
+    </div>
+  </div>
+
+  <!-- Map in center -->
+  <div id="map"></div>
+
+  <!-- Right info panel -->
+  <div id="sidebar">
+    <h2>Bird Info</h2>
+    <p>Click a bird to see more!</p>
+    <div id="info-box">
+      <!-- Dynamic bird info will show here -->
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Initialize Leaflet map
+    const map = L.map('map').setView([39.8283, -98.5795], 4); // Center US
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Example bird data
+
+
+//call ada or const bird br
+
+    const birdMarkers = [
+      {
+        name: "red f",
+        coords: [40.7128, -74.0060], // New York
+        info: "A noisy blue bird often found in backyards."
+      },
+      {
+        name: "Cardinal",
+        coords: [39.0997, -94.5786], // Kansas City
+        info: "Bright red and loves to sing."
+      },
+      {
+        name: "Goldfinch",
+        coords: [41.8781, -87.6298], // Chicago
+        info: "Small yellow bird with a cheerful song."
+      },
+      {
+        name: "Hawk",
+        coords: [34.0522, -118.2437], // Los Angeles
+        info: "Large bird of prey, often seen soaring high."
+      },
+      {
+        name: "Woodpecker",
+        coords: [36.1627, -86.7816], // Nashville
+        info: "Known for pecking on trees to find food."
+      }
+      // Add more birds here...
+    ];
+
+    // Keep track of added markers
+    const addedMarkers = new Set();
+
+    // This function adds a marker when a bird is clicked
+    function addBirdMarker(bird) {
+      // Add the marker to the map
+      if(addedMarkers.has(bird.name)){
+        return;
+      }
+      const marker = L.marker(bird.coords).addTo(map);
+      marker.bindPopup(`<strong>${bird.name}</strong><br>${bird.info}`);
+      addedMarkers.add(bird.name);
+      // Display info in the sidebar
+      marker.on('click', () => {
+        document.getElementById('info-box').innerHTML = `
+          <h3>${bird.name}</h3>
+          <p>${bird.info}</p>
+        `;
+      });
+    }
+
+    // Add event listener for each bird item click
+    const birdItems = document.querySelectorAll('.bird-item');
+    birdItems.forEach(item => {
+      item.addEventListener('click', () => {
+        // Find the bird data by its name
+        const birdName = item.getAttribute('data-name');
+        const bird = birdMarkers.find(b => b.name === birdName);
+
+        // Add the bird marker to the map when clicked
+        addBirdMarker(bird);
+      });
+    });
+  </script>
+
+</body>
+</html>
