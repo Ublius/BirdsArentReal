@@ -9,17 +9,7 @@ CREATE TABLE birds (
     county TEXT,
     locality TEXT,
     observer_id TEXT,
-    observation_type TEXT,
+    observation_type TEXT
 );
 
-\copy birds(
-    name, 
-    scientific_name, 
-    observation_count, 
-    country_code, 
-    state, 
-    county, 
-    locality, 
-    observer_id, 
-    observation_type) 
-FROM 'birds.csv' with (format csv, HEADER true);
+\copy birds (name, scientific_name, observation_count, country_code, state, county, locality, observer_id, observation_type) FROM 'birds2.csv' with (format csv, HEADER true, NULL 'NULL');

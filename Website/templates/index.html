@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Birds Viewer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h3>Birds</h3>
+            <div class="scroll-box">
+                {% for bird in birds %}
+                    <div class="bird-name" onclick="loadBird('{{ bird }}')">{{ bird }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="content" id="bird-info">
+            <h2>Click a bird to see details</h2>
+        </div>
+    </div>
+
+    <script>
+        function loadBird(name) {
+            fetch(`/bird/${encodeURIComponent(name)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('bird-info').innerHTML = `<p>${data.error}</p>`;
+                    } else {
+                        document.getElementById('bird-info').innerHTML = `
+                            <h2>${data.name}</h2>
+                            <p><strong>Scientific Name:</strong> ${data.scientific_name}</p>
+                            <p><strong>Observation Count:</strong> ${data.observation_count ?? 'N/A'}</p>
+                        `;
+                    }
+                });
+        }
+    </script>
+</body>
+</html>
