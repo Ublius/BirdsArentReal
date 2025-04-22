@@ -1,40 +1,88 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Birds Viewer</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <meta charset="UTF-8">
+  <title>Bird Picker Map</title>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="static/styles.css">
+  <link rel="icon" type="image/png" sizes="64x64" href="static/favicon.jpg">
 </head>
 <body>
-    <div class="container">
-        <div class="sidebar">
-            <h3>Birds</h3>
-            <div class="scroll-box">
-                {% for bird in birds %}
-                    <div class="bird-name" onclick="loadBird('{{ bird }}')">{{ bird }}</div>
-                {% endfor %}
-            </div>
-        </div>
-        <div class="content" id="bird-info">
-            <h2>Click a bird to see details</h2>
-        </div>
-    </div>
 
-    <script>
-        function loadBird(name) {
-            fetch(`/bird/${encodeURIComponent(name)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) {
-                        document.getElementById('bird-info').innerHTML = `<p>${data.error}</p>`;
-                    } else {
-                        document.getElementById('bird-info').innerHTML = `
-                            <h2>${data.name}</h2>
-                            <p><strong>Scientific Name:</strong> ${data.scientific_name}</p>
-                            <p><strong>Observation Count:</strong> ${data.observation_count ?? 'N/A'}</p>
-                        `;
-                    }
-                });
-        }
-    </script>
+  <!-- Left bird list -->
+  <div id="birds">
+    <h2>Bird List</h2>
+    <div id="bird-list">
+      {% for bird in birds %}
+        <div class="bird-item" data-name="{{ bird }}">{{ bird }}</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Map in center -->
+  <div id="map"></div>
+
+  <!-- Right info panel -->
+  <div id="sidebar">
+    <h2>Bird Info</h2>
+    <p>Click a bird to see more!</p>
+    <div id="info-box">
+      <!-- Dynamic bird info will show here -->
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map', {
+    center: [39.8283, -98.5795], // Center of the US
+    zoom: 500, // Default zoom level
+    zoomControl: false, // Disable zoom controls
+    scrollWheelZoom: false, // Disable zooming with the mouse wheel
+    doubleClickZoom: false, // Disable zooming with double-click
+    dragging: false // Disable dragging
+  });
+
+  // Add OpenStreetMap tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Set map bounds to the United States
+  const bounds = [
+    [24.396308, -125.0], // Southwest corner (Hawaii excluded)
+    [49.384358, -66.93457] // Northeast corner
+  ];
+  map.setMaxBounds(bounds);
+  map.fitBounds(bounds); // Adjust the map to fit the bounds
+
+
+    const stateCoords = {{ state_coords | tojson }};
+    let markers = []; // Array to store markers
+
+    document.querySelectorAll('.bird-item').forEach(item => {
+        item.addEventListener('click', async () => {
+        const birdName = item.dataset.name;
+
+        // Fetch states for the selected bird
+        const response = await fetch(`/bird_states/${birdName}`);
+        const data = await response.json();
+
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+
+        // Add markers for each state
+        data.states.forEach(state => {
+            if (stateCoords[state]) {
+                const [lat, lng] = stateCoords[state];
+                const marker = L.marker([lat, lng]).addTo(map).bindPopup(`${birdName} spotted in ${state}`);
+                markers.push(marker); 
+            }
+        });
+        });
+    });
+  </script>
+
 </body>
 </html>

@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify
 import psycopg2
 import os
 from dotenv import load_dotenv
+from internal.state_cords import state_coords
 
 load_dotenv(dotenv_path='../.env')
 
@@ -23,33 +24,25 @@ def get_db_connection():
         port=DB_PORT
     )
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def index(path:''):
+@app.route('/')
+def index():
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute('SELECT DISTINCT name FROM birds ORDER BY name;')
     birds = [row[0] for row in cur.fetchall()]
     cur.close()
     conn.close()
-    return render_template('index.html', birds=birds)
+    return render_template('index.html', birds=birds, state_coords=state_coords)
 
-@app.route('/bird/<name>')
-def get_bird(name):
+@app.route('/bird_states/<bird_name>')
+def bird_states(bird_name):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('SELECT name, scientific_name, observation_count FROM birds WHERE name = %s LIMIT 1;', (name,))
-    bird = cur.fetchone()
+    cur.execute("SELECT DISTINCT state FROM birds WHERE name = %s;", (bird_name,))
+    states = [row[0] for row in cur.fetchall()]
     cur.close()
     conn.close()
-    if bird:
-        return jsonify({
-            "name": bird[0],
-            "scientific_name": bird[1],
-            "observation_count": bird[2]
-        })
-    else:
-        return jsonify({"error": "Bird not found"}), 404
+    return jsonify(states=states)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5000, host='0.0.0.0')
