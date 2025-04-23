@@ -40,62 +40,52 @@ def bird_states(bird_name):
     cur = conn.cursor()
     cur.execute("SELECT DISTINCT state FROM birds WHERE name = %s;", (bird_name,))
     states = [row[0] for row in cur.fetchall()]
-    placeholders = ','.join(f"'{state.upper()}'" for state in states) 
     cur.close()
     conn.close()
-    
+
+    placeholders = ','.join(f"'{state.upper()}'" for state in states) 
+
     conn = get_db_connection()
     curr2 = conn.cursor()
-    test = f'''
-WITH state_crime_totals AS (
-  SELECT state, category, SUM(value) AS total
-  FROM normalized_crime
-  WHERE state IN ({placeholders})
-    AND category NOT IN ('total_all_classes', 'other_offenses', 'other_assaults')
-  GROUP BY state, category
-),
-state_top_category AS (
-  SELECT DISTINCT ON (state) state, category
-  FROM state_crime_totals
-  ORDER BY state, total DESC
-),
-majority_top_category AS (
-  SELECT category, COUNT(*) AS freq
-  FROM state_top_category
-  GROUP BY category
-)
-SELECT category
-FROM majority_top_category
-ORDER BY freq DESC
-LIMIT 1;
-    ''', (placeholders,)
-    
-    top_crime = curr2.execute(f'''WITH state_crime_totals AS (
-  SELECT state, category, SUM(value) AS total
-  FROM normalized_crime
-  WHERE state IN ({placeholders})
-    AND category NOT IN ('total_all_classes', 'other_offenses', 'other_assaults')
-  GROUP BY state, category
-),
-state_top_category AS (
-  SELECT DISTINCT ON (state) state, category
-  FROM state_crime_totals
-  ORDER BY state, total DESC
-),
-majority_top_category AS (
-  SELECT category, COUNT(*) AS freq
-  FROM state_top_category
-  GROUP BY category
-)
-SELECT category
-FROM majority_top_category
-ORDER BY freq DESC
-LIMIT 1;
-''')
-    top_crime = curr2.execute("select * from birds limit 1;")
+    curr2.execute(f'''
+      WITH input_states AS (
+        SELECT UNNEST(ARRAY[{placeholders}]) AS state
+      ),
+      state_crime_totals AS (
+        SELECT nc.state, nc.category, SUM(nc.value) AS total
+        FROM normalized_crime nc
+        JOIN input_states s ON nc.state = s.state
+        WHERE nc.category NOT IN ('total_all_classes', 'other_offenses', 'other_assaults')
+        GROUP BY nc.state, nc.category
+      ),
+      state_top_category AS (
+        SELECT DISTINCT ON (state) state, category
+        FROM state_crime_totals
+        ORDER BY state, total DESC
+      ),
+      state_count AS (
+        SELECT COUNT(*) AS num_states FROM input_states
+      ),
+      majority_top_category AS (
+        SELECT category, COUNT(*) AS freq
+        FROM state_top_category
+        GROUP BY category
+      )
+      SELECT 
+        CASE 
+          WHEN sc.num_states = 1 THEN (SELECT category FROM state_top_category)
+          WHEN sc.num_states > 1 THEN (
+            SELECT category
+            FROM majority_top_category
+            WHERE freq > 1
+            LIMIT 1
+          )
+        END AS category
+      FROM state_count sc;
+    ''')
+    top_crime = curr2.fetchone()
     curr2.close()
     conn.close()
-    print(test)
     return jsonify(states=states,top_crime=top_crime)
 
 @app.route('/crime/by_bird/<bird_name>/<state_name>')

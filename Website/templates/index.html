@@ -26,9 +26,11 @@
   <!-- Right info panel -->
   <div id="sidebar">
     <h2>Bird Info</h2>
-    <p>Click a bird to see more!</p>
     <div id="info-box">
       <!-- Dynamic bird info will show here -->
+    </div>
+    <div id="additional-info">
+      <!-- Additional info will show here when a marker is clicked -->
     </div>
   </div>
 
@@ -41,7 +43,7 @@
       zoomControl: false, // Disable zoom controls
       scrollWheelZoom: false, // Disable zooming with the mouse wheel
       doubleClickZoom: false, // Disable zooming with double-click
-      dragging: true // Enable dragging
+      dragging: false // Disable dragging
     });
 
     // Add OpenStreetMap tiles
@@ -57,7 +59,51 @@
     map.setMaxBounds(bounds);
     map.fitBounds(bounds); // Adjust the map to fit the bounds
 
-    const stateCoords = {{ state_coords | tojson }}; // Coordinates for each state
+    const hawaiiControl = L.control({ position: 'bottomleft' });
+    hawaiiControl.onAdd = function () {
+      const div = L.DomUtil.create('div', 'hawaii-map-container');
+      div.id = 'hawaii-map';
+      return div;
+    };
+    hawaiiControl.addTo(map);
+
+    const hawaiiMap = L.map('hawaii-map', {
+      center: [20.7967, -157.5], // Center of Hawaii
+      zoom: 5, // Zoom level for Hawaii
+      zoomControl: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      dragging: false,
+      attributionControl: false
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(hawaiiMap);
+
+    const alaskaControl = L.control({ position: 'bottomright' });
+    alaskaControl.onAdd = function () {
+      const div = L.DomUtil.create('div', 'alaska-map-container');
+      div.id = 'alaska-map';
+      return div;
+    };
+    alaskaControl.addTo(map);
+
+    const alaskaMap = L.map('alaska-map', {
+      center: [64.2008, -149.4937], // Center of Alaska
+      zoom: 2, // Zoom level for Alaska
+      zoomControl: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      dragging: false,
+      attributionControl: false
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(alaskaMap);
+
+    const stateCoords = JSON.parse('{{ state_coords | tojson | safe }}'); // Coordinates for each state
     let markers = []; // Array to store markers
 
     document.querySelectorAll('.bird-item').forEach(item => {
@@ -69,14 +115,36 @@
         const response = await fetch(`/bird_states/${birdName}`);
         const data = await response.json();
 
-        markers.forEach(marker => map.removeLayer(marker)); // Remove previous markers
+        const infoBox = document.getElementById('info-box');
+        const additionalInfoBox = document.getElementById('additional-info');
+
+        if (data.top_crime && data.top_crime[0]) {
+          infoBox.innerHTML = `<p>The <strong>${birdName}</strong> causes <strong>${data.top_crime[0]}</strong>!</p>`;;
+        } else {
+          infoBox.innerHTML = `<p>The <strong>${birdName}</strong> is <strong>innocent</strong>!</p>`;
+        }
+       
+        additionalInfoBox.innerHTML = ''; // Clear previous additional info
+
+        markers.forEach(({ marker, mapInstance }) => mapInstance.removeLayer(marker));
         markers = []; // Reset markers
 
         // Add markers for each state
         data.states.forEach(state => {
           if (stateCoords[state]) {
             const [lat, lng] = stateCoords[state];
-            const marker = L.marker([lat, lng]).addTo(map).bindPopup(`${birdName} spotted in ${state}`);
+            const marker = L.marker([lat, lng]).bindPopup(`${birdName} spotted in ${state}`, { autoPan: false });
+
+            if (state.toLowerCase() === 'hawaii') {
+              marker.addTo(hawaiiMap);
+              markers.push({ marker, mapInstance: hawaiiMap }); // Track marker and its map
+            } else if (state.toLowerCase() === 'alaska') {
+              marker.addTo(alaskaMap); // Add Alaska marker to the main map
+              markers.push({ marker, mapInstance: alaskaMap }); // Track marker and its map
+            } else {
+              marker.addTo(map);
+              markers.push({ marker, mapInstance: map }); // Track marker and its map
+            }
 
             // When a marker is clicked, show crime data
             marker.on('click', async () => {
@@ -86,29 +154,28 @@
                 const crimeData = await crimeResponse.json();
 
                 if (crimeResponse.ok) {
-                  // Update the info box with crime data
-                  document.getElementById('info-box').innerHTML = `
-                    <h3>${birdName}</h3>
+                  // Append additional information below the sentence
+                  const additionalInfo = `
+                    <hr>
+                    <h3>Additional Information</h3>
                     <p><strong>Spotted in:</strong> ${state}</p>
                     <p><strong>Highest Crime Category:</strong> ${crimeData.category}</p>
                     <p><strong>Crime Value:</strong> ${crimeData.max_value}</p>
                   `;
+                  infoBox.innerHTML += additionalInfo;
                 } else {
                   // Handle error in crime data
-                  document.getElementById('info-box').innerHTML = `<p>No crime data found for ${birdName} in ${state}.</p>`;
+                  infoBox.innerHTML += `<hr><p>No crime data found for ${birdName} in ${state}.</p>`;
                 }
               } catch (error) {
                 console.error(error);
-                document.getElementById('info-box').innerHTML = `<p>Error fetching crime data.</p>`;
+                infoBox.innerHTML += `<hr><p>Error fetching crime data.</p>`;
               }
             });
-
-            markers.push(marker); // Add marker to the map
           }
         });
       });
     });
   </script>
-
 </body>
 </html>
