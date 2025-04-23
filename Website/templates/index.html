@@ -36,51 +36,77 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const map = L.map('map', {
-    center: [39.8283, -98.5795], // Center of the US
-    zoom: 500, // Default zoom level
-    zoomControl: false, // Disable zoom controls
-    scrollWheelZoom: false, // Disable zooming with the mouse wheel
-    doubleClickZoom: false, // Disable zooming with double-click
-    dragging: false // Disable dragging
-  });
+      center: [39.8283, -98.5795], // Center of the US
+      zoom: 5, // Default zoom level
+      zoomControl: false, // Disable zoom controls
+      scrollWheelZoom: false, // Disable zooming with the mouse wheel
+      doubleClickZoom: false, // Disable zooming with double-click
+      dragging: true // Enable dragging
+    });
 
-  // Add OpenStreetMap tiles
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-  // Set map bounds to the United States
-  const bounds = [
-    [24.396308, -125.0], // Southwest corner (Hawaii excluded)
-    [49.384358, -66.93457] // Northeast corner
-  ];
-  map.setMaxBounds(bounds);
-  map.fitBounds(bounds); // Adjust the map to fit the bounds
+    // Set map bounds to the United States
+    const bounds = [
+      [24.396308, -125.0], // Southwest corner (Hawaii excluded)
+      [49.384358, -66.93457] // Northeast corner
+    ];
+    map.setMaxBounds(bounds);
+    map.fitBounds(bounds); // Adjust the map to fit the bounds
 
-
-    const stateCoords = {{ state_coords | tojson }};
+    const stateCoords = {{ state_coords | tojson }}; // Coordinates for each state
     let markers = []; // Array to store markers
 
     document.querySelectorAll('.bird-item').forEach(item => {
-        item.addEventListener('click', async () => {
+      item.addEventListener('click', async () => {
         const birdName = item.dataset.name;
+
 
         // Fetch states for the selected bird
         const response = await fetch(`/bird_states/${birdName}`);
         const data = await response.json();
 
-        markers.forEach(marker => map.removeLayer(marker));
-        markers = [];
+        markers.forEach(marker => map.removeLayer(marker)); // Remove previous markers
+        markers = []; // Reset markers
 
         // Add markers for each state
         data.states.forEach(state => {
-            if (stateCoords[state]) {
-                const [lat, lng] = stateCoords[state];
-                const marker = L.marker([lat, lng]).addTo(map).bindPopup(`${birdName} spotted in ${state}`);
-                markers.push(marker); 
-            }
+          if (stateCoords[state]) {
+            const [lat, lng] = stateCoords[state];
+            const marker = L.marker([lat, lng]).addTo(map).bindPopup(`${birdName} spotted in ${state}`);
+
+            // When a marker is clicked, show crime data
+            marker.on('click', async () => {
+              try {
+                // Fetch crime data for the selected bird and state
+                const crimeResponse = await fetch(`/crime/by_bird/${birdName}/${state}`);
+                const crimeData = await crimeResponse.json();
+
+                if (crimeResponse.ok) {
+                  // Update the info box with crime data
+                  document.getElementById('info-box').innerHTML = `
+                    <h3>${birdName}</h3>
+                    <p><strong>Spotted in:</strong> ${state}</p>
+                    <p><strong>Highest Crime Category:</strong> ${crimeData.category}</p>
+                    <p><strong>Crime Value:</strong> ${crimeData.max_value}</p>
+                  `;
+                } else {
+                  // Handle error in crime data
+                  document.getElementById('info-box').innerHTML = `<p>No crime data found for ${birdName} in ${state}.</p>`;
+                }
+              } catch (error) {
+                console.error(error);
+                document.getElementById('info-box').innerHTML = `<p>Error fetching crime data.</p>`;
+              }
+            });
+
+            markers.push(marker); // Add marker to the map
+          }
         });
-        });
+      });
     });
   </script>
 
