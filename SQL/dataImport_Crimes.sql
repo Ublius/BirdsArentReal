@@ -37,5 +37,8 @@ CREATE TABLE crimes (
     population_2023 BIGINT
 );
 
+
+
+
 \copy crimes FROM 'CrimesState.csv' with (format csv, HEADER true);
 
